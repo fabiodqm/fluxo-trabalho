@@ -13,7 +13,6 @@ ARQUIVO_PERFIS = "perfis.json"
 
 STATUS = ["A Fazer", "Em Andamento", "Em Revisão", "Concluído"]
 STATUS_ATIVOS = ["A Fazer", "Em Andamento", "Em Revisão"]
-
 PRIORIDADES = ["Urgente", "Alta", "Média", "Baixa"]
 
 ICONES = {
@@ -31,104 +30,13 @@ PESO_PRIORIDADE = {
 }
 
 
-st.markdown("""
-<style>
-[data-testid="stAppViewContainer"] {
-    background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
-}
+def carregar_css():
+    if os.path.exists("style.css"):
+        with open("style.css", "r", encoding="utf-8") as arquivo:
+            st.markdown(f"<style>{arquivo.read()}</style>", unsafe_allow_html=True)
 
-[data-testid="stSidebar"] {
-    background: #020617;
-    border-right: 1px solid #1e293b;
-}
 
-.block-container {
-    padding-top: 1.5rem;
-    padding-bottom: 3rem;
-}
-
-h1, h2, h3 {
-    color: #f8fafc;
-}
-
-p, label, span, div {
-    color: #e5e7eb;
-}
-
-[data-testid="stMetric"] {
-    background: #0f172a;
-    border: 1px solid #1e293b;
-    padding: 18px;
-    border-radius: 18px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-}
-
-[data-testid="stMetricLabel"] {
-    color: #94a3b8;
-}
-
-[data-testid="stMetricValue"] {
-    color: #ffffff;
-}
-
-.stButton button {
-    border-radius: 12px;
-    border: 1px solid #334155;
-    background: #111827;
-    color: #f8fafc;
-    font-weight: 600;
-    padding: 0.55rem 1rem;
-}
-
-.stButton button:hover {
-    background: #2563eb;
-    color: #ffffff;
-    border-color: #2563eb;
-}
-
-[data-testid="stForm"] {
-    background: #0f172a;
-    border: 1px solid #1e293b;
-    border-radius: 18px;
-    padding: 18px;
-}
-
-[data-testid="stVerticalBlockBorderWrapper"] {
-    border-radius: 18px;
-    border-color: #1e293b;
-    background: #0f172a;
-}
-
-div[data-baseweb="input"] input,
-div[data-baseweb="select"] > div,
-textarea {
-    border-radius: 12px !important;
-}
-
-.task-pill {
-    display:inline-block;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 13px;
-    font-weight: 700;
-    background: #1e293b;
-    color: #f8fafc;
-}
-
-.avatar-name {
-    text-align:center;
-    font-size:13px;
-    margin-top:6px;
-    color:#f8fafc;
-    font-weight:700;
-}
-
-.small-muted {
-    color:#94a3b8;
-    font-size:13px;
-}
-</style>
-""", unsafe_allow_html=True)
+carregar_css()
 
 
 def supabase_client():
@@ -212,17 +120,16 @@ def garantir_perfil(email):
         if perfil.get("email") == email:
             return perfil
 
-    novo_perfil = {
+    novo = {
         "email": email,
         "nome": email.split("@")[0],
         "foto": "",
         "foto_tipo": "image/png"
     }
 
-    perfis.append(novo_perfil)
+    perfis.append(novo)
     salvar_perfis(perfis)
-
-    return novo_perfil
+    return novo
 
 
 def buscar_perfil(email):
@@ -284,7 +191,7 @@ def ir_para(pagina):
     st.rerun()
 
 
-def mostrar_avatar_clicavel():
+def mostrar_avatar():
     perfil = buscar_perfil(st.session_state.usuario_email)
     nome = html.escape(perfil.get("nome") or st.session_state.usuario_email)
 
@@ -293,20 +200,9 @@ def mostrar_avatar_clicavel():
 
         st.markdown(
             f"""
-            <a href="?pagina=Perfil" style="text-decoration:none;">
-                <div style="text-align:center; width:95px; margin-left:auto;">
-                    <img src="{src}"
-                    style="
-                        width:60px;
-                        height:60px;
-                        border-radius:50%;
-                        object-fit:cover;
-                        border:2px solid #ffffff;
-                        display:block;
-                        margin:auto;
-                    ">
-                    <div class="avatar-name">{nome}</div>
-                </div>
+            <a href="?pagina=Perfil" class="avatar-link">
+                <img src="{src}" class="avatar-img">
+                <div class="avatar-name">{nome}</div>
             </a>
             """,
             unsafe_allow_html=True
@@ -316,26 +212,9 @@ def mostrar_avatar_clicavel():
 
         st.markdown(
             f"""
-            <a href="?pagina=Perfil" style="text-decoration:none;">
-                <div style="text-align:center; width:95px; margin-left:auto;">
-                    <div style="
-                        width:60px;
-                        height:60px;
-                        border-radius:50%;
-                        background:#334155;
-                        display:flex;
-                        align-items:center;
-                        justify-content:center;
-                        margin:auto;
-                        border:2px solid #ffffff;
-                        font-size:24px;
-                        font-weight:bold;
-                        color:white;
-                    ">
-                        {letra}
-                    </div>
-                    <div class="avatar-name">{nome}</div>
-                </div>
+            <a href="?pagina=Perfil" class="avatar-link">
+                <div class="avatar-fallback">{letra}</div>
+                <div class="avatar-name">{nome}</div>
             </a>
             """,
             unsafe_allow_html=True
@@ -349,12 +228,71 @@ if "usuario_email" not in st.session_state:
     st.session_state.usuario_email = ""
 
 
+def processar_retorno_google():
+    codigo = st.query_params.get("code", "")
+
+    if codigo and not st.session_state.logado:
+        try:
+            try:
+                sessao = supabase.auth.exchange_code_for_session(codigo)
+            except:
+                sessao = supabase.auth.exchange_code_for_session({"auth_code": codigo})
+
+            user = getattr(sessao, "user", None)
+
+            if user and user.email:
+                st.session_state.logado = True
+                st.session_state.usuario_email = user.email
+                garantir_perfil(user.email)
+                st.query_params.clear()
+                st.rerun()
+
+        except Exception:
+            st.error("Não foi possível concluir o login com Google.")
+
+
+processar_retorno_google()
+
+
 def tela_login():
-    centro1, centro2, centro3 = st.columns([1, 1.3, 1])
+    centro1, centro2, centro3 = st.columns([1, 1.25, 1])
 
     with centro2:
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+
         st.markdown("## TaskFlow")
         st.caption("Sistema visual de gestão de tarefas")
+
+        app_url = st.secrets.get("APP_URL", "")
+
+        if st.button("Entrar com Google", use_container_width=True):
+            try:
+                if app_url:
+                    resposta = supabase.auth.sign_in_with_oauth({
+                        "provider": "google",
+                        "options": {
+                            "redirect_to": app_url
+                        }
+                    })
+                else:
+                    resposta = supabase.auth.sign_in_with_oauth({
+                        "provider": "google"
+                    })
+
+                if resposta.url:
+                    st.link_button(
+                        "Continuar com Google",
+                        resposta.url,
+                        use_container_width=True
+                    )
+                else:
+                    st.error("Não foi possível gerar o link do Google.")
+
+            except Exception as erro:
+                st.error("Erro ao iniciar login com Google.")
+                st.exception(erro)
+
+        st.divider()
 
         aba_login, aba_cadastro, aba_reset = st.tabs(
             ["Entrar", "Criar conta", "Recuperar senha"]
@@ -373,14 +311,14 @@ def tela_login():
 
                     if resposta.user:
                         st.session_state.logado = True
-                        st.session_state.usuario_email = email
-                        garantir_perfil(email)
+                        st.session_state.usuario_email = resposta.user.email
+                        garantir_perfil(resposta.user.email)
                         st.rerun()
                     else:
                         st.error("Não foi possível entrar.")
 
-                except Exception as erro:
-                    st.error(str(erro))
+                except Exception:
+                    st.error("E-mail ou senha inválidos.")
 
         with aba_cadastro:
             email = st.text_input("E-mail", key="cad_email")
@@ -405,24 +343,23 @@ def tela_login():
                         nome_final = nome.strip() or email.split("@")[0]
                         atualizar_perfil(email, nome_final)
 
-                        st.success("Conta criada. Verifique seu e-mail antes de fazer login.")
+                        st.success("Conta criada. Agora tente entrar.")
 
                     except Exception as erro:
-                        st.error("Não foi possível criar a conta. Verifique se o e-mail já existe.")
+                        st.error("Não foi possível criar a conta.")
+                        st.exception(erro)
 
         with aba_reset:
             email_reset = st.text_input("E-mail da conta", key="reset_email")
 
             if st.button("Enviar recuperação", key="btn_reset", use_container_width=True):
                 try:
-                    try:
-                        supabase.auth.reset_password_for_email(email_reset)
-                    except AttributeError:
-                        supabase.auth.reset_password_email(email_reset)
-
-                    st.success("Se o e-mail existir, você receberá uma mensagem de recuperação.")
+                    supabase.auth.reset_password_for_email(email_reset)
+                    st.success("Se o e-mail existir, você receberá a recuperação.")
                 except Exception:
-                    st.error("Não foi possível enviar a recuperação agora.")
+                    st.error("Não foi possível enviar recuperação.")
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 if not st.session_state.logado:
@@ -442,13 +379,13 @@ if pagina_url not in ["Quadro", "Concluídas", "Perfil"]:
     pagina_url = "Quadro"
 
 
-topo_esq, topo_meio, topo_dir = st.columns([5, 2, 1])
+topo1, topo2, topo3 = st.columns([5, 2, 1])
 
-with topo_esq:
-    st.title("TaskFlow")
-    st.caption("Painel de gestão de tarefas")
+with topo1:
+    st.markdown("# TaskFlow")
+    st.caption("Painel profissional de gestão de tarefas")
 
-with topo_meio:
+with topo2:
     st.write("")
     if st.button("Sair", use_container_width=True):
         st.session_state.logado = False
@@ -456,8 +393,8 @@ with topo_meio:
         st.query_params.clear()
         st.rerun()
 
-with topo_dir:
-    mostrar_avatar_clicavel()
+with topo3:
+    mostrar_avatar()
 
 
 with st.sidebar:
@@ -512,6 +449,7 @@ with st.sidebar:
                     st.rerun()
 
         st.divider()
+
         st.header("Filtros")
         pesquisa = st.text_input("Pesquisar")
         filtro_status = st.selectbox("Status", ["Todos"] + STATUS_ATIVOS)
@@ -521,14 +459,9 @@ with st.sidebar:
         st.header("Filtros avançados")
 
         pesquisa_concluidas = st.text_input("Pesquisar")
-        responsavel_concluidas = st.selectbox(
-            "Responsável",
-            ["Todos"] + nomes_usuarios()
-        )
-        criador_concluidas = st.selectbox(
-            "Criado por",
-            ["Todos"] + nomes_usuarios()
-        )
+        responsavel_concluidas = st.selectbox("Responsável", ["Todos"] + nomes_usuarios())
+        criador_concluidas = st.selectbox("Criado por", ["Todos"] + nomes_usuarios())
+
         prioridade_concluidas = st.multiselect(
             "Prioridades",
             PRIORIDADES,
@@ -547,11 +480,13 @@ with st.sidebar:
         )
 
         st.write("Período do prazo")
+
         data_inicio_concluidas = st.date_input(
             "De",
             value=date(2020, 1, 1),
             key="data_inicio_concluidas"
         )
+
         data_fim_concluidas = st.date_input(
             "Até",
             value=date.today(),
@@ -577,7 +512,7 @@ if pagina_url == "Quadro":
     m3.metric("Em Andamento", len([t for t in tarefas_ativas if t["status"] == "Em Andamento"]))
     m4.metric("Em Revisão", len([t for t in tarefas_ativas if t["status"] == "Em Revisão"]))
 
-    st.info("As tarefas são ordenadas automaticamente pela prioridade: Urgente → Alta → Média → Baixa.")
+    st.info("Prioridade no topo: Urgente → Alta → Média → Baixa.")
 
     st.divider()
     st.subheader("Quadro de tarefas")
@@ -654,7 +589,6 @@ if pagina_url == "Quadro":
 
                     with st.expander("Editar"):
                         novo_nome = st.text_input("Nome", value=tarefa["nome"], key=f"nome_{i}")
-
                         lista_resp = nomes_usuarios()
 
                         if tarefa["responsavel"] in lista_resp:
@@ -740,31 +674,15 @@ elif pagina_url == "Concluídas":
         filtradas.append((i, tarefa))
 
     if ordenar_concluidas == "Prioridade":
-        filtradas = sorted(
-            filtradas,
-            key=lambda item: PESO_PRIORIDADE.get(item[1]["prioridade"], 99)
-        )
+        filtradas = sorted(filtradas, key=lambda item: PESO_PRIORIDADE.get(item[1]["prioridade"], 99))
     elif ordenar_concluidas == "Prazo mais próximo":
-        filtradas = sorted(
-            filtradas,
-            key=lambda item: data_valida(item[1].get("prazo", "")) or date.max
-        )
+        filtradas = sorted(filtradas, key=lambda item: data_valida(item[1].get("prazo", "")) or date.max)
     elif ordenar_concluidas == "Prazo mais distante":
-        filtradas = sorted(
-            filtradas,
-            key=lambda item: data_valida(item[1].get("prazo", "")) or date.min,
-            reverse=True
-        )
+        filtradas = sorted(filtradas, key=lambda item: data_valida(item[1].get("prazo", "")) or date.min, reverse=True)
     elif ordenar_concluidas == "Nome A-Z":
-        filtradas = sorted(
-            filtradas,
-            key=lambda item: item[1]["nome"].lower()
-        )
+        filtradas = sorted(filtradas, key=lambda item: item[1]["nome"].lower())
     elif ordenar_concluidas == "Responsável A-Z":
-        filtradas = sorted(
-            filtradas,
-            key=lambda item: item[1]["responsavel"].lower()
-        )
+        filtradas = sorted(filtradas, key=lambda item: item[1]["responsavel"].lower())
 
     c1, c2, c3, c4 = st.columns(4)
 
