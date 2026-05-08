@@ -1,22 +1,23 @@
 import streamlit as st
 import json
 import os
-import csv
-import re
 import base64
 import hashlib
 import html
-import urllib.request
-from io import StringIO
+import requests
 from datetime import date, datetime
 
-st.set_page_config(page_title="TaskFlow", layout="wide")
+st.set_page_config(
+    page_title="TaskFlow",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxbLn-lzXfwYGfcjdlc9ZqFRo5F_XIYaZZfhdvxRB6O2VEE8zsQlxSaSpP1IXLjQbM/exec"
 
 ARQUIVO_TAREFAS = "tarefas.json"
 ARQUIVO_USUARIOS = "usuarios.json"
 ARQUIVO_PERFIS = "perfis.json"
-
-PLANILHA_TOKENS_URL = "https://docs.google.com/spreadsheets/d/1Uwav3x9hP9gk7eu8Gup-KJU-aerkdf6riWlht609MGk/edit?usp=sharing"
 
 STATUS = ["A Fazer", "Em Andamento", "Em Revisão", "Concluído"]
 STATUS_ATIVOS = ["A Fazer", "Em Andamento", "Em Revisão"]
@@ -51,7 +52,7 @@ def carregar_json(arquivo):
         try:
             with open(arquivo, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except:
+        except Exception:
             return []
     return []
 
@@ -65,70 +66,38 @@ def gerar_hash(senha):
     return hashlib.sha256(senha.encode("utf-8")).hexdigest()
 
 
-def criar_url_csv_google_sheets(url):
-    resultado = re.search(r"/d/([a-zA-Z0-9-_]+)", url)
-
-    if not resultado:
-        return ""
-
-    planilha_id = resultado.group(1)
-    gid = "0"
-
-    resultado_gid = re.search(r"gid=([0-9]+)", url)
-    if resultado_gid:
-        gid = resultado_gid.group(1)
-
-    return f"https://docs.google.com/spreadsheets/d/{planilha_id}/gviz/tq?tqx=out:csv&gid={gid}"
-
-
-@st.cache_data(ttl=60)
-def carregar_tokens_planilha():
-    url_csv = criar_url_csv_google_sheets(PLANILHA_TOKENS_URL)
-
-    if not url_csv:
-        return []
-
+def chamar_apps_script(params):
     try:
-        with urllib.request.urlopen(url_csv, timeout=10) as resposta:
-            conteudo = resposta.read().decode("utf-8")
-
-        leitor = csv.DictReader(StringIO(conteudo))
-        tokens = []
-
-        for linha in leitor:
-            item = {}
-
-            for chave, valor in linha.items():
-                if chave:
-                    item[chave.strip().lower()] = str(valor).strip()
-
-            tokens.append(item)
-
-        return tokens
-
-    except:
-        return []
+        resposta = requests.get(
+            APPS_SCRIPT_URL,
+            params=params,
+            timeout=15
+        )
+        return resposta.json()
+    except Exception:
+        return {}
 
 
-def token_valido(token_digitado):
-    token_digitado = token_digitado.strip()
+def gerar_token_apps_script(nome, email):
+    dados = chamar_apps_script({
+        "acao": "gerar",
+        "nome": nome,
+        "email": email
+    })
 
-    if not token_digitado:
-        return False, ""
+    if dados.get("sucesso") is True:
+        return dados.get("token", "")
 
-    tokens = carregar_tokens_planilha()
+    return ""
 
-    for item in tokens:
-        token = item.get("token", "").strip()
-        ativo = item.get("ativo", "").strip().lower()
-        nome = item.get("nome", "").strip()
 
-        ativo_ok = ativo in ["sim", "s", "true", "1", "ativo", "yes"]
+def validar_token_apps_script(token):
+    dados = chamar_apps_script({
+        "acao": "validar",
+        "token": token
+    })
 
-        if token == token_digitado and ativo_ok:
-            return True, nome
-
-    return False, ""
+    return dados.get("valido", False)
 
 
 def carregar_usuarios():
@@ -155,11 +124,11 @@ def salvar_perfis(perfis):
     salvar_json(ARQUIVO_PERFIS, perfis)
 
 
-def buscar_usuario(nome_usuario):
+def buscar_usuario(usuario_nome):
     usuarios = carregar_usuarios()
 
     for usuario in usuarios:
-        if usuario.get("usuario") == nome_usuario:
+        if usuario.get("usuario") == usuario_nome:
             return usuario
 
     return None
@@ -181,6 +150,7 @@ def garantir_perfil(usuario):
 
     perfis.append(novo)
     salvar_perfis(perfis)
+
     return novo
 
 
@@ -241,7 +211,7 @@ def nome_do_usuario_logado():
 def data_valida(texto):
     try:
         return datetime.strptime(texto, "%Y-%m-%d").date()
-    except:
+    except Exception:
         return None
 
 
@@ -302,6 +272,21 @@ def mostrar_avatar():
         )
 
 
+def bloco_login_header():
+    st.markdown(
+        """
+        <div class="brand-wrap">
+            <div class="brand-orb">TF</div>
+            <div>
+                <div class="brand-title">TaskFlow</div>
+                <div class="brand-subtitle">Gestão visual premium com acesso validado por token</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
 if "logado" not in st.session_state:
     st.session_state.logado = False
 
@@ -310,16 +295,15 @@ if "usuario" not in st.session_state:
 
 
 def tela_login():
-    centro1, centro2, centro3 = st.columns([1, 1.25, 1])
+    centro1, centro2, centro3 = st.columns([1, 1.35, 1])
 
     with centro2:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
 
-        st.markdown("## TaskFlow")
-        st.caption("Sistema visual de gestão de tarefas")
+        bloco_login_header()
 
-        aba_login, aba_cadastro, aba_reset = st.tabs(
-            ["Entrar", "Criar conta", "Redefinir senha"]
+        aba_login, aba_cadastro, aba_token, aba_reset = st.tabs(
+            ["Entrar", "Criar conta", "Solicitar token", "Redefinir senha"]
         )
 
         with aba_login:
@@ -346,36 +330,65 @@ def tela_login():
 
             if st.button("Criar conta", key="btn_cadastro", use_container_width=True):
                 usuarios = carregar_usuarios()
-                valido, nome_token = token_valido(token)
 
                 if novo_usuario.strip() == "":
                     st.error("Digite um usuário.")
                 elif senha.strip() == "":
                     st.error("Digite uma senha.")
+                elif len(senha) < 6:
+                    st.error("A senha precisa ter pelo menos 6 caracteres.")
                 elif senha != confirmar:
                     st.error("As senhas não coincidem.")
                 elif any(u.get("usuario") == novo_usuario for u in usuarios):
                     st.error("Esse usuário já existe.")
-                elif not valido:
-                    st.error("Token inválido ou inativo na planilha.")
+                elif token.strip() == "":
+                    st.error("Digite o token de verificação.")
                 else:
-                    nome_final = nome.strip() or nome_token or novo_usuario
+                    with st.spinner("Validando token..."):
+                        valido = validar_token_apps_script(token)
 
-                    usuarios.append({
-                        "usuario": novo_usuario,
-                        "nome": nome_final,
-                        "senha": gerar_hash(senha),
-                        "token_usado": token
-                    })
+                    if not valido:
+                        st.error("Token inválido, inativo ou já utilizado.")
+                    else:
+                        nome_final = nome.strip() or novo_usuario
 
-                    salvar_usuarios(usuarios)
+                        usuarios.append({
+                            "usuario": novo_usuario,
+                            "nome": nome_final,
+                            "senha": gerar_hash(senha),
+                            "token_usado": token
+                        })
 
-                    atualizar_perfil(
-                        novo_usuario,
-                        nome_final
-                    )
+                        salvar_usuarios(usuarios)
+                        atualizar_perfil(novo_usuario, nome_final)
 
-                    st.success("Conta criada. Agora entre no sistema.")
+                        st.success("Conta criada. Agora entre no sistema.")
+
+        with aba_token:
+            st.markdown("### Solicitar token de acesso")
+            st.caption("O token será gerado automaticamente e registrado na planilha.")
+
+            nome_token = st.text_input("Nome", key="token_nome")
+            email_token = st.text_input("E-mail", key="token_email")
+
+            if st.button("Gerar token", key="btn_gerar_token", use_container_width=True):
+                if nome_token.strip() == "":
+                    st.error("Digite seu nome.")
+                elif email_token.strip() == "":
+                    st.error("Digite seu e-mail.")
+                else:
+                    with st.spinner("Gerando token..."):
+                        token_gerado = gerar_token_apps_script(
+                            nome_token,
+                            email_token
+                        )
+
+                    if token_gerado:
+                        st.success("Token gerado com sucesso.")
+                        st.code(token_gerado)
+                        st.info("Copie este token e use na aba Criar conta.")
+                    else:
+                        st.error("Não foi possível gerar token. Verifique a implantação do Apps Script.")
 
         with aba_reset:
             usuario_reset = st.text_input("Usuário", key="reset_usuario")
@@ -385,27 +398,34 @@ def tela_login():
 
             if st.button("Redefinir senha", key="btn_reset", use_container_width=True):
                 usuarios = carregar_usuarios()
-                valido, _ = token_valido(token_reset)
 
-                if not valido:
-                    st.error("Token inválido ou inativo.")
+                if token_reset.strip() == "":
+                    st.error("Digite o token.")
+                elif nova_senha.strip() == "":
+                    st.error("Digite a nova senha.")
+                elif len(nova_senha) < 6:
+                    st.error("A senha precisa ter pelo menos 6 caracteres.")
                 elif nova_senha != confirmar_senha:
                     st.error("As senhas não coincidem.")
-                elif nova_senha.strip() == "":
-                    st.error("Digite uma nova senha.")
                 else:
-                    encontrado = False
+                    with st.spinner("Validando token..."):
+                        valido = validar_token_apps_script(token_reset)
 
-                    for usuario in usuarios:
-                        if usuario.get("usuario") == usuario_reset:
-                            usuario["senha"] = gerar_hash(nova_senha)
-                            encontrado = True
-
-                    if encontrado:
-                        salvar_usuarios(usuarios)
-                        st.success("Senha redefinida.")
+                    if not valido:
+                        st.error("Token inválido, inativo ou já utilizado.")
                     else:
-                        st.error("Usuário não encontrado.")
+                        encontrado = False
+
+                        for usuario in usuarios:
+                            if usuario.get("usuario") == usuario_reset:
+                                usuario["senha"] = gerar_hash(nova_senha)
+                                encontrado = True
+
+                        if encontrado:
+                            salvar_usuarios(usuarios)
+                            st.success("Senha redefinida.")
+                        else:
+                            st.error("Usuário não encontrado.")
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -430,8 +450,15 @@ if pagina_url not in ["Quadro", "Concluídas", "Perfil"]:
 topo1, topo2, topo3 = st.columns([5, 2, 1])
 
 with topo1:
-    st.markdown("# TaskFlow")
-    st.caption("Painel profissional de gestão de tarefas")
+    st.markdown(
+        """
+        <div class="page-heading">
+            <div class="page-title">TaskFlow</div>
+            <div class="page-caption">Painel premium de gestão operacional</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 with topo2:
     st.write("")
@@ -551,7 +578,7 @@ if pagina_url == "Quadro":
         if t["status"] != "Concluído"
     ]
 
-    st.subheader("Resumo")
+    st.markdown('<div class="section-title">Resumo executivo</div>', unsafe_allow_html=True)
 
     m1, m2, m3, m4 = st.columns(4)
 
@@ -563,7 +590,8 @@ if pagina_url == "Quadro":
     st.info("Prioridade no topo: Urgente → Alta → Média → Baixa.")
 
     st.divider()
-    st.subheader("Quadro de tarefas")
+
+    st.markdown('<div class="section-title">Quadro de tarefas</div>', unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
 
@@ -684,7 +712,7 @@ if pagina_url == "Quadro":
 
 
 elif pagina_url == "Concluídas":
-    st.subheader("Tarefas concluídas")
+    st.markdown('<div class="section-title">Tarefas concluídas</div>', unsafe_allow_html=True)
 
     concluidas = [
         (i, t)
@@ -766,7 +794,7 @@ elif pagina_url == "Concluídas":
 
 
 elif pagina_url == "Perfil":
-    st.subheader("Perfil")
+    st.markdown('<div class="section-title">Perfil</div>', unsafe_allow_html=True)
 
     perfil = buscar_perfil(st.session_state.usuario)
 
