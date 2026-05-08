@@ -1,232 +1,654 @@
-[data-testid="stAppViewContainer"] {
-    background:
-        radial-gradient(circle at 12% 10%, rgba(212, 175, 55, 0.18), transparent 28%),
-        radial-gradient(circle at 88% 18%, rgba(99, 102, 241, 0.16), transparent 30%),
-        linear-gradient(135deg, #020617 0%, #0b1120 42%, #020617 100%);
+/* ═══════════════════════════════════════════════════
+   TASKFLOW — Premium Dark Interface
+   Aesthetic: Obsidian + Slate Blue + Electric Indigo
+   Fonts: Sora (display) + DM Sans (body)
+   ═══════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+/* ─── CSS Variables ─────────────────────────────── */
+:root {
+    --bg-base:       #080c14;
+    --bg-layer1:     #0d1320;
+    --bg-layer2:     #111927;
+    --bg-card:       #0f1724;
+    --bg-glass:      rgba(13, 19, 32, 0.82);
+
+    --accent:        #6366f1;
+    --accent-light:  #818cf8;
+    --accent-glow:   rgba(99, 102, 241, 0.22);
+    --accent-subtle: rgba(99, 102, 241, 0.10);
+
+    --gold:          #e9b84a;
+    --gold-dim:      rgba(233, 184, 74, 0.14);
+
+    --text-primary:  #f0f4ff;
+    --text-secondary:#8b97b8;
+    --text-muted:    #4a5568;
+
+    --border:        rgba(99, 102, 241, 0.14);
+    --border-hover:  rgba(99, 102, 241, 0.38);
+
+    --urgent:        #ef4444;
+    --high:          #f97316;
+    --medium:        #eab308;
+    --low:           #3b82f6;
+
+    --radius-sm:     10px;
+    --radius-md:     16px;
+    --radius-lg:     22px;
+    --radius-xl:     30px;
+
+    --shadow-card:   0 8px 32px rgba(0,0,0,0.48), 0 1px 0 rgba(255,255,255,0.03) inset;
+    --shadow-glow:   0 0 40px rgba(99, 102, 241, 0.18);
+    --shadow-btn:    0 4px 20px rgba(99, 102, 241, 0.26);
 }
 
-[data-testid="stSidebar"] {
+/* ─── Base & App Container ──────────────────────── */
+html, body, [data-testid="stAppViewContainer"] {
+    font-family: 'DM Sans', sans-serif !important;
+    background-color: var(--bg-base) !important;
+}
+
+[data-testid="stAppViewContainer"] {
     background:
-        linear-gradient(180deg, rgba(2, 6, 23, 0.98), rgba(15, 23, 42, 0.98));
-    border-right: 1px solid rgba(212, 175, 55, 0.20);
+        radial-gradient(ellipse 70% 50% at 0% 0%,   rgba(99,102,241,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 55% 40% at 100% 80%, rgba(99,102,241,0.06) 0%, transparent 55%),
+        radial-gradient(ellipse 40% 30% at 50% 50%,  rgba(13,19,32,0.95) 0%, transparent 100%),
+        var(--bg-base) !important;
+    min-height: 100vh;
 }
 
 .block-container {
-    padding-top: 1.4rem;
-    padding-bottom: 4rem;
-    max-width: 1500px;
+    padding-top: 1.6rem !important;
+    padding-bottom: 5rem !important;
+    max-width: 1520px !important;
 }
 
-h1, h2, h3 {
-    color: #f8fafc !important;
-    letter-spacing: -0.04em;
+/* ─── Typography Global ─────────────────────────── */
+h1, h2, h3, h4 {
+    font-family: 'Sora', sans-serif !important;
+    color: var(--text-primary) !important;
+    letter-spacing: -0.03em !important;
 }
 
-p, label, span, div {
-    color: #e5e7eb;
+p, label, span, div, li {
+    font-family: 'DM Sans', sans-serif !important;
+    color: var(--text-secondary);
 }
 
-.brand-wrap {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    margin-bottom: 24px;
+/* ─── Sidebar ───────────────────────────────────── */
+[data-testid="stSidebar"] {
+    background: var(--bg-layer1) !important;
+    border-right: 1px solid var(--border) !important;
+    box-shadow: 4px 0 32px rgba(0,0,0,0.4) !important;
 }
 
-.brand-orb {
-    width: 70px;
-    height: 70px;
-    border-radius: 22px;
-    background: linear-gradient(135deg, #d4af37, #f8e7a1, #7c5c14);
-    color: #020617;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 950;
-    font-size: 24px;
-    box-shadow: 0 0 36px rgba(212, 175, 55, 0.28);
+[data-testid="stSidebar"] > div {
+    padding-top: 1.8rem;
 }
 
-.brand-title {
-    font-size: 34px;
-    font-weight: 950;
-    color: #ffffff;
-    letter-spacing: -0.06em;
-}
-
-.brand-subtitle {
-    color: #cbd5e1;
-    font-size: 14px;
-}
-
-.login-card {
-    background:
-        linear-gradient(145deg, rgba(15, 23, 42, 0.94), rgba(2, 6, 23, 0.94));
-    border: 1px solid rgba(212, 175, 55, 0.22);
-    border-radius: 30px;
-    padding: 36px;
-    margin-top: 4rem;
-    box-shadow:
-        0 30px 100px rgba(0, 0, 0, 0.55),
-        inset 0 1px 0 rgba(255,255,255,0.05);
-}
-
-.page-heading {
-    margin-bottom: 12px;
-}
-
-.page-title {
-    font-size: 42px;
-    font-weight: 950;
-    color: #ffffff;
-    letter-spacing: -0.06em;
-}
-
-.page-caption {
-    color: #cbd5e1;
-    font-size: 15px;
-}
-
-.section-title {
-    font-size: 24px;
-    font-weight: 900;
-    color: #ffffff;
-    margin: 18px 0 16px 0;
-    letter-spacing: -0.035em;
-}
-
-[data-testid="stMetric"] {
-    background:
-        linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.72));
-    border: 1px solid rgba(212, 175, 55, 0.18);
-    padding: 22px;
-    border-radius: 22px;
-    box-shadow:
-        0 14px 36px rgba(0,0,0,0.32),
-        inset 0 1px 0 rgba(255,255,255,0.04);
-}
-
-[data-testid="stMetricLabel"] {
-    color: #94a3b8 !important;
-    font-weight: 800;
-}
-
-[data-testid="stMetricValue"] {
-    color: #ffffff !important;
-    font-weight: 950;
-}
-
-.stButton button {
-    border-radius: 15px !important;
-    border: 1px solid rgba(212, 175, 55, 0.24) !important;
-    background:
-        linear-gradient(135deg, #111827, #0f172a) !important;
-    color: #f8fafc !important;
-    font-weight: 850 !important;
-    padding: 0.65rem 1rem !important;
-    transition: all 0.18s ease-in-out;
-}
-
-.stButton button:hover {
-    background:
-        linear-gradient(135deg, #d4af37, #8b6f1d) !important;
-    color: #020617 !important;
-    border-color: #f8e7a1 !important;
-    transform: translateY(-1px);
-    box-shadow: 0 12px 30px rgba(212, 175, 55, 0.28);
-}
-
-[data-testid="stForm"] {
-    background:
-        linear-gradient(145deg, rgba(15, 23, 42, 0.88), rgba(2, 6, 23, 0.88));
-    border: 1px solid rgba(212, 175, 55, 0.16);
-    border-radius: 24px;
-    padding: 20px;
-}
-
-[data-testid="stVerticalBlockBorderWrapper"] {
-    border-radius: 24px !important;
-    border-color: rgba(212, 175, 55, 0.16) !important;
-    background:
-        linear-gradient(145deg, rgba(15, 23, 42, 0.94), rgba(2, 6, 23, 0.88)) !important;
-    box-shadow:
-        0 12px 30px rgba(0,0,0,0.28),
-        inset 0 1px 0 rgba(255,255,255,0.04);
-}
-
-div[data-baseweb="input"] input,
-div[data-baseweb="select"] > div,
-textarea {
-    border-radius: 15px !important;
-    background-color: rgba(17, 24, 39, 0.95) !important;
-    border-color: rgba(212, 175, 55, 0.16) !important;
-    color: #f8fafc !important;
-}
-
-[data-testid="stExpander"] {
-    background: rgba(2, 6, 23, 0.45);
-    border-radius: 16px;
-    border: 1px solid rgba(212, 175, 55, 0.12);
-}
-
-.avatar-link {
-    text-decoration: none;
-    color: white;
-    display: block;
-    text-align: center;
-    width: 96px;
-    margin-left: auto;
-}
-
-.avatar-img {
-    width: 62px;
-    height: 62px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid #d4af37;
-    display: block;
-    margin: auto;
-    box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.16);
-}
-
-.avatar-fallback {
-    width: 62px;
-    height: 62px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #d4af37, #f8e7a1, #7c5c14);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: auto;
-    border: 2px solid #ffffff;
-    font-size: 24px;
-    font-weight: 950;
-    color: #020617;
-    box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.16);
-}
-
-.avatar-name {
-    text-align: center;
-    font-size: 13px;
-    margin-top: 7px;
-    color: #f8fafc;
-    font-weight: 850;
-}
-
-hr {
-    border-color: rgba(212, 175, 55, 0.12) !important;
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.14em !important;
+    text-transform: uppercase !important;
+    color: var(--text-muted) !important;
+    padding: 0 0.2rem;
+    margin-bottom: 0.4rem !important;
 }
 
 section[data-testid="stSidebar"] button {
-    justify-content: flex-start;
+    justify-content: flex-start !important;
+    font-size: 14px !important;
+    letter-spacing: -0.01em !important;
 }
 
-code {
-    background: rgba(212, 175, 55, 0.12) !important;
-    color: #f8e7a1 !important;
-    border-radius: 10px !important;
+/* ─── Brand / Logo Block ────────────────────────── */
+.brand-wrap {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 28px;
 }
 
+.brand-orb {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--accent) 0%, #4f46e5 100%);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Sora', sans-serif;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: -0.04em;
+    box-shadow: 0 0 28px var(--accent-glow), var(--shadow-btn);
+    flex-shrink: 0;
+}
+
+.brand-title {
+    font-family: 'Sora', sans-serif !important;
+    font-size: 28px !important;
+    font-weight: 800 !important;
+    color: var(--text-primary) !important;
+    letter-spacing: -0.05em !important;
+    line-height: 1 !important;
+}
+
+.brand-subtitle {
+    color: var(--text-muted) !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    margin-top: 4px;
+    line-height: 1.4;
+}
+
+/* ─── Login Card ────────────────────────────────── */
+.login-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 40px 36px;
+    margin-top: 3rem;
+    box-shadow: var(--shadow-card), 0 0 60px rgba(99,102,241,0.08);
+    backdrop-filter: blur(12px);
+    position: relative;
+    overflow: hidden;
+}
+
+.login-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(99,102,241,0.5), transparent);
+}
+
+/* ─── Page Heading ──────────────────────────────── */
+.page-heading {
+    margin-bottom: 6px;
+}
+
+.page-title {
+    font-family: 'Sora', sans-serif !important;
+    font-size: 36px !important;
+    font-weight: 800 !important;
+    color: var(--text-primary) !important;
+    letter-spacing: -0.05em !important;
+    line-height: 1.1 !important;
+}
+
+.page-caption {
+    color: var(--text-muted) !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    margin-top: 3px;
+}
+
+/* ─── Section Title ─────────────────────────────── */
+.section-title {
+    font-family: 'Sora', sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.12em !important;
+    text-transform: uppercase !important;
+    color: var(--accent-light) !important;
+    margin: 20px 0 14px 0 !important;
+    padding-left: 2px;
+}
+
+/* ─── Metric Cards ──────────────────────────────── */
+[data-testid="stMetric"] {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-lg) !important;
+    padding: 20px 22px !important;
+    box-shadow: var(--shadow-card) !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+[data-testid="stMetric"]::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+[data-testid="stMetric"]:hover {
+    border-color: var(--border-hover) !important;
+    box-shadow: var(--shadow-card), var(--shadow-glow) !important;
+}
+
+[data-testid="stMetric"]:hover::after {
+    opacity: 1;
+}
+
+[data-testid="stMetricLabel"] > div {
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+    color: var(--text-muted) !important;
+}
+
+[data-testid="stMetricValue"] > div {
+    font-family: 'Sora', sans-serif !important;
+    font-size: 32px !important;
+    font-weight: 800 !important;
+    color: var(--text-primary) !important;
+    letter-spacing: -0.04em !important;
+    line-height: 1.1 !important;
+}
+
+/* ─── Buttons ───────────────────────────────────── */
+.stButton > button {
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em !important;
+    border-radius: var(--radius-sm) !important;
+    border: 1px solid var(--border) !important;
+    background: var(--bg-layer2) !important;
+    color: var(--text-secondary) !important;
+    padding: 0.55rem 1.1rem !important;
+    transition: all 0.16s ease !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+}
+
+.stButton > button:hover {
+    background: var(--accent-subtle) !important;
+    border-color: var(--accent) !important;
+    color: var(--accent-light) !important;
+    box-shadow: var(--shadow-btn) !important;
+    transform: translateY(-1px) !important;
+}
+
+.stButton > button:active {
+    transform: translateY(0px) !important;
+    box-shadow: none !important;
+}
+
+/* Primary submit buttons */
+[data-testid="stFormSubmitButton"] > button,
+button[kind="primary"] {
+    background: linear-gradient(135deg, var(--accent) 0%, #4f46e5 100%) !important;
+    border-color: var(--accent) !important;
+    color: #fff !important;
+    box-shadow: var(--shadow-btn) !important;
+}
+
+[data-testid="stFormSubmitButton"] > button:hover,
+button[kind="primary"]:hover {
+    background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent) 100%) !important;
+    border-color: var(--accent-light) !important;
+    color: #fff !important;
+}
+
+/* ─── Form ──────────────────────────────────────── */
+[data-testid="stForm"] {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-lg) !important;
+    padding: 22px 20px !important;
+    box-shadow: var(--shadow-card) !important;
+}
+
+/* ─── Task Cards ────────────────────────────────── */
+[data-testid="stVerticalBlockBorderWrapper"] {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-lg) !important;
+    box-shadow: var(--shadow-card) !important;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease !important;
+    overflow: hidden !important;
+    position: relative;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"]::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px;
+    height: 100%;
+    background: linear-gradient(180deg, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"]:hover {
+    border-color: var(--border-hover) !important;
+    box-shadow: var(--shadow-card), 0 0 24px rgba(99,102,241,0.12) !important;
+    transform: translateY(-2px) !important;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"]:hover::before {
+    opacity: 1;
+}
+
+/* ─── Inputs, Selects, Textareas ────────────────── */
+div[data-baseweb="input"] > div,
+div[data-baseweb="textarea"] > div {
+    background-color: var(--bg-layer1) !important;
+    border-color: var(--border) !important;
+    border-radius: var(--radius-sm) !important;
+    transition: border-color 0.15s ease !important;
+}
+
+div[data-baseweb="input"] > div:focus-within,
+div[data-baseweb="textarea"] > div:focus-within {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px var(--accent-subtle) !important;
+}
+
+div[data-baseweb="input"] input,
+div[data-baseweb="textarea"] textarea {
+    color: var(--text-primary) !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 14px !important;
+    caret-color: var(--accent-light) !important;
+}
+
+div[data-baseweb="select"] > div {
+    background-color: var(--bg-layer1) !important;
+    border-color: var(--border) !important;
+    border-radius: var(--radius-sm) !important;
+    color: var(--text-primary) !important;
+}
+
+/* ─── Labels ────────────────────────────────────── */
+[data-testid="stWidgetLabel"] p,
+label[data-testid="stWidgetLabel"] {
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    color: var(--text-muted) !important;
+    margin-bottom: 4px !important;
+}
+
+/* ─── Expanders ─────────────────────────────────── */
+[data-testid="stExpander"] {
+    background: rgba(8,12,20,0.6) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-md) !important;
+}
+
+[data-testid="stExpander"] summary {
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: var(--text-secondary) !important;
+}
+
+[data-testid="stExpander"] summary:hover {
+    color: var(--accent-light) !important;
+}
+
+/* ─── Alerts / Info / Success ───────────────────── */
 .stAlert {
-    border-radius: 18px !important;
+    border-radius: var(--radius-md) !important;
+    border-left: 3px solid !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 13.5px !important;
+}
+
+[data-testid="stAlertContentInfo"] {
+    background: rgba(99,102,241,0.08) !important;
+    border-color: var(--accent) !important;
+    color: var(--accent-light) !important;
+}
+
+[data-testid="stAlertContentSuccess"] {
+    background: rgba(16,185,129,0.08) !important;
+    border-color: #10b981 !important;
+    color: #34d399 !important;
+}
+
+[data-testid="stAlertContentError"] {
+    background: rgba(239,68,68,0.08) !important;
+    border-color: var(--urgent) !important;
+    color: #fca5a5 !important;
+}
+
+/* ─── Tabs ──────────────────────────────────────── */
+[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    background: transparent !important;
+    border-bottom: 1px solid var(--border) !important;
+    gap: 4px;
+    padding-bottom: 0 !important;
+}
+
+[data-testid="stTabs"] [data-baseweb="tab"] {
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: var(--text-muted) !important;
+    background: transparent !important;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0 !important;
+    padding: 8px 18px !important;
+    border: none !important;
+    transition: color 0.15s ease !important;
+}
+
+[data-testid="stTabs"] [aria-selected="true"] {
+    color: var(--text-primary) !important;
+    background: var(--accent-subtle) !important;
+    border-bottom: 2px solid var(--accent) !important;
+}
+
+[data-testid="stTabs"] [data-baseweb="tab"]:hover {
+    color: var(--text-secondary) !important;
+}
+
+/* ─── Column Headers (Kanban) ───────────────────── */
+[data-testid="stColumn"] h3 {
+    font-family: 'Sora', sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+    color: var(--text-muted) !important;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+    margin-bottom: 14px !important;
+}
+
+/* ─── Avatar ────────────────────────────────────── */
+.avatar-link {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+    width: 72px;
+    margin-left: auto;
+    cursor: pointer;
+}
+
+.avatar-img {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent);
+    display: block;
+    margin: auto;
+    box-shadow: 0 0 0 4px var(--accent-subtle), 0 0 20px var(--accent-glow);
+    transition: box-shadow 0.2s ease;
+}
+
+.avatar-img:hover {
+    box-shadow: 0 0 0 4px rgba(99,102,241,0.3), 0 0 30px rgba(99,102,241,0.4);
+}
+
+.avatar-fallback {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent) 0%, #4f46e5 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: auto;
+    font-family: 'Sora', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    color: #fff;
+    box-shadow: 0 0 0 4px var(--accent-subtle), 0 0 20px var(--accent-glow);
+    transition: box-shadow 0.2s ease;
+}
+
+.avatar-fallback:hover {
+    box-shadow: 0 0 0 4px rgba(99,102,241,0.3), 0 0 30px rgba(99,102,241,0.4);
+}
+
+.avatar-name {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-top: 5px;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 72px;
+}
+
+/* ─── Divider ───────────────────────────────────── */
+hr, [data-testid="stDivider"] {
+    border-color: var(--border) !important;
+    opacity: 1 !important;
+}
+
+/* ─── Code Block ────────────────────────────────── */
+code, .stCode, [data-testid="stCode"] {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+    background: rgba(99,102,241,0.10) !important;
+    color: var(--accent-light) !important;
+    border-radius: 8px !important;
+    border: 1px solid var(--border) !important;
+    padding: 2px 8px !important;
+    font-size: 13px !important;
+}
+
+/* ─── Scrollbar ─────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: var(--bg-base);
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(99,102,241,0.3);
+    border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+}
+
+/* ─── Multiselect ───────────────────────────────── */
+[data-baseweb="tag"] {
+    background: var(--accent-subtle) !important;
+    border: 1px solid var(--accent) !important;
+    border-radius: 8px !important;
+}
+
+[data-baseweb="tag"] span {
+    color: var(--accent-light) !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 12px !important;
+}
+
+/* ─── Date Input ────────────────────────────────── */
+[data-testid="stDateInput"] input {
+    color: var(--text-primary) !important;
+    background: var(--bg-layer1) !important;
+    border-color: var(--border) !important;
+    border-radius: var(--radius-sm) !important;
+}
+
+/* ─── Caption / Small text ──────────────────────── */
+[data-testid="stCaptionContainer"] p,
+small, .small-text {
+    font-size: 11.5px !important;
+    color: var(--text-muted) !important;
+    font-weight: 400 !important;
+}
+
+/* ─── Checkbox ──────────────────────────────────── */
+[data-testid="stCheckbox"] label {
+    font-size: 13px !important;
+    color: var(--text-secondary) !important;
+}
+
+/* ─── Toast / Spinner ───────────────────────────── */
+[data-testid="stSpinner"] {
+    color: var(--accent) !important;
+}
+
+/* ─── File Uploader ─────────────────────────────── */
+[data-testid="stFileUploader"] {
+    border: 1px dashed var(--border) !important;
+    border-radius: var(--radius-md) !important;
+    background: var(--bg-card) !important;
+    transition: border-color 0.15s ease !important;
+}
+
+[data-testid="stFileUploader"]:hover {
+    border-color: var(--accent) !important;
+    background: var(--accent-subtle) !important;
+}
+
+/* ─── Sidebar Nav Buttons — pill style ──────────── */
+section[data-testid="stSidebar"] [data-testid="baseButton-secondary"] {
+    text-align: left !important;
+    border-radius: var(--radius-sm) !important;
+    font-size: 13.5px !important;
+    font-weight: 500 !important;
+    color: var(--text-secondary) !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    padding: 0.5rem 0.9rem !important;
+    margin-bottom: 2px;
+    letter-spacing: -0.01em;
+}
+
+section[data-testid="stSidebar"] [data-testid="baseButton-secondary"]:hover {
+    background: var(--accent-subtle) !important;
+    border-color: var(--border) !important;
+    color: var(--accent-light) !important;
+}
+
+/* ─── Write text inside widgets ─────────────────── */
+[data-testid="stMarkdownContainer"] p {
+    color: var(--text-secondary) !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+}
+
+[data-testid="stMarkdownContainer"] strong {
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+}
+
+/* ─── h4 inside cards ───────────────────────────── */
+[data-testid="stVerticalBlockBorderWrapper"] h4 {
+    font-family: 'Sora', sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: var(--text-primary) !important;
+    letter-spacing: -0.02em !important;
+    line-height: 1.3 !important;
+    margin: 0 !important;
 }
