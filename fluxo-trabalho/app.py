@@ -39,18 +39,7 @@ def carregar_css():
 carregar_css()
 
 
-def supabase_client():
-    url = st.secrets.get("SUPABASE_URL", "")
-    key = st.secrets.get("SUPABASE_KEY", "")
-
-    if not url or not key:
-        st.error("Configure SUPABASE_URL e SUPABASE_KEY nos Secrets do Streamlit.")
-        st.stop()
-
-    return create_client(url, key)
-
-
-supabase = supabase_client()
+TOKENS_CSV_URL = "https://docs.google.com/spreadsheets/d/1Uwav3x9hP9gk7eu8Gup-KJU-aerkdf6riWlht609MGk/edit?usp=sharing"
 
 
 def carregar_json(arquivo):
@@ -228,6 +217,62 @@ if "usuario_email" not in st.session_state:
     st.session_state.usuario_email = ""
 
 
+def pegar_email_usuario(resposta):
+    try:
+        if resposta.user and resposta.user.email:
+            return resposta.user.email
+    except:
+        pass
+
+    try:
+        if resposta.session and resposta.session.user and resposta.session.user.email:
+            return resposta.session.user.email
+    except:
+        pass
+
+    try:
+        usuario = supabase.auth.get_user()
+        if usuario and usuario.user and usuario.user.email:
+            return usuario.user.email
+    except:
+        pass
+
+    return ""
+
+
+def processar_retorno_google():
+    if st.session_state.logado:
+        return
+
+    codigo = st.query_params.get("code", "")
+
+    if not codigo:
+        return
+
+    try:
+        resposta = supabase.auth.exchange_code_for_session({
+            "auth_code": codigo
+        })
+
+        email = pegar_email_usuario(resposta)
+
+        if email:
+            st.session_state.logado = True
+            st.session_state.usuario_email = email
+            garantir_perfil(email)
+            st.query_params.clear()
+            st.rerun()
+        else:
+            st.error("Login Google voltou, mas não consegui identificar o e-mail.")
+
+    except Exception as erro:
+        st.error("Não foi possível concluir o login com Google.")
+        st.exception(erro)
+
+
+processar_retorno_google()
+
+
 def tela_login():
     centro1, centro2, centro3 = st.columns([1, 1.25, 1])
 
@@ -236,6 +281,34 @@ def tela_login():
 
         st.markdown("## TaskFlow")
         st.caption("Sistema visual de gestão de tarefas")
+
+        app_url = st.secrets.get("APP_URL", "")
+
+        if st.button("Entrar com Google", use_container_width=True):
+            try:
+                resposta = supabase.auth.sign_in_with_oauth({
+                    "provider": "google",
+                    "options": {
+                        "redirect_to": app_url
+                    }
+                })
+
+                if resposta.url:
+                    st.markdown(
+                        f"""
+                        <meta http-equiv="refresh" content="0; url={resposta.url}">
+                        <a href="{resposta.url}">Clique aqui se não redirecionar automaticamente</a>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                else:
+                    st.error("Não foi possível gerar o link do Google.")
+
+            except Exception as erro:
+                st.error("Erro ao iniciar login com Google.")
+                st.exception(erro)
+
+        st.divider()
 
         aba_login, aba_cadastro, aba_reset = st.tabs(
             ["Entrar", "Criar conta", "Recuperar senha"]
@@ -252,10 +325,12 @@ def tela_login():
                         "password": senha
                     })
 
-                    if resposta.user:
+                    email_usuario = pegar_email_usuario(resposta)
+
+                    if email_usuario:
                         st.session_state.logado = True
-                        st.session_state.usuario_email = resposta.user.email
-                        garantir_perfil(resposta.user.email)
+                        st.session_state.usuario_email = email_usuario
+                        garantir_perfil(email_usuario)
                         st.rerun()
                     else:
                         st.error("Não foi possível entrar.")
@@ -278,7 +353,7 @@ def tela_login():
                     st.error("Digite uma senha.")
                 else:
                     try:
-                        resposta = supabase.auth.sign_up({
+                        supabase.auth.sign_up({
                             "email": email,
                             "password": senha
                         })
@@ -286,10 +361,7 @@ def tela_login():
                         nome_final = nome.strip() or email.split("@")[0]
                         atualizar_perfil(email, nome_final)
 
-                        if resposta.user:
-                            st.success("Conta criada. Agora tente entrar.")
-                        else:
-                            st.warning("Conta enviada. Verifique as configurações do Supabase.")
+                        st.success("Conta criada. Agora tente entrar.")
 
                     except Exception as erro:
                         st.error("Não foi possível criar a conta.")
@@ -535,7 +607,6 @@ if pagina_url == "Quadro":
 
                     with st.expander("Editar"):
                         novo_nome = st.text_input("Nome", value=tarefa["nome"], key=f"nome_{i}")
-
                         lista_resp = nomes_usuarios()
 
                         if tarefa["responsavel"] in lista_resp:
