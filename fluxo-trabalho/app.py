@@ -44,7 +44,7 @@ def supabase_client():
     key = st.secrets.get("SUPABASE_KEY", "")
 
     if not url or not key:
-        st.error("Configure SUPABASE_URL e SUPABASE_KEY nos Secrets do Streamlit.")
+        st.error("Configure SUPABASE_URL e SUPABASE_KEY nos Secrets.")
         st.stop()
 
     return create_client(url, key)
@@ -228,27 +228,57 @@ if "usuario_email" not in st.session_state:
     st.session_state.usuario_email = ""
 
 
+def pegar_email_usuario(resposta):
+    try:
+        if resposta.user and resposta.user.email:
+            return resposta.user.email
+    except:
+        pass
+
+    try:
+        if resposta.session and resposta.session.user and resposta.session.user.email:
+            return resposta.session.user.email
+    except:
+        pass
+
+    try:
+        usuario = supabase.auth.get_user()
+        if usuario and usuario.user and usuario.user.email:
+            return usuario.user.email
+    except:
+        pass
+
+    return ""
+
+
 def processar_retorno_google():
+    if st.session_state.logado:
+        return
+
     codigo = st.query_params.get("code", "")
 
-    if codigo and not st.session_state.logado:
-        try:
-            try:
-                sessao = supabase.auth.exchange_code_for_session(codigo)
-            except:
-                sessao = supabase.auth.exchange_code_for_session({"auth_code": codigo})
+    if not codigo:
+        return
 
-            user = getattr(sessao, "user", None)
+    try:
+        resposta = supabase.auth.exchange_code_for_session({
+            "auth_code": codigo
+        })
 
-            if user and user.email:
-                st.session_state.logado = True
-                st.session_state.usuario_email = user.email
-                garantir_perfil(user.email)
-                st.query_params.clear()
-                st.rerun()
+        email = pegar_email_usuario(resposta)
 
-        except Exception:
-            st.error("Não foi possível concluir o login com Google.")
+        if email:
+            st.session_state.logado = True
+            st.session_state.usuario_email = email
+            garantir_perfil(email)
+            st.query_params.clear()
+            st.rerun()
+        else:
+            st.error("Login Google voltou, mas não consegui identificar o e-mail.")
+
+    except Exception as erro:
+        st.error("Não foi possível concluir o login com Google.")
+        st.exception(erro)
 
 
 processar_retorno_google()
@@ -267,23 +297,20 @@ def tela_login():
 
         if st.button("Entrar com Google", use_container_width=True):
             try:
-                if app_url:
-                    resposta = supabase.auth.sign_in_with_oauth({
-                        "provider": "google",
-                        "options": {
-                            "redirect_to": app_url
-                        }
-                    })
-                else:
-                    resposta = supabase.auth.sign_in_with_oauth({
-                        "provider": "google"
-                    })
+                resposta = supabase.auth.sign_in_with_oauth({
+                    "provider": "google",
+                    "options": {
+                        "redirect_to": app_url
+                    }
+                })
 
                 if resposta.url:
-                    st.link_button(
-                        "Continuar com Google",
-                        resposta.url,
-                        use_container_width=True
+                    st.markdown(
+                        f"""
+                        <meta http-equiv="refresh" content="0; url={resposta.url}">
+                        <a href="{resposta.url}">Clique aqui se não redirecionar automaticamente</a>
+                        """,
+                        unsafe_allow_html=True
                     )
                 else:
                     st.error("Não foi possível gerar o link do Google.")
@@ -309,10 +336,12 @@ def tela_login():
                         "password": senha
                     })
 
-                    if resposta.user:
+                    email_usuario = pegar_email_usuario(resposta)
+
+                    if email_usuario:
                         st.session_state.logado = True
-                        st.session_state.usuario_email = resposta.user.email
-                        garantir_perfil(resposta.user.email)
+                        st.session_state.usuario_email = email_usuario
+                        garantir_perfil(email_usuario)
                         st.rerun()
                     else:
                         st.error("Não foi possível entrar.")
@@ -335,7 +364,7 @@ def tela_login():
                     st.error("Digite uma senha.")
                 else:
                     try:
-                        resposta = supabase.auth.sign_up({
+                        supabase.auth.sign_up({
                             "email": email,
                             "password": senha
                         })
