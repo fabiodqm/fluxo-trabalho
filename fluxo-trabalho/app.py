@@ -1,15 +1,22 @@
 import streamlit as st
 import json
 import os
+import csv
+import re
 import base64
+import hashlib
 import html
+import urllib.request
+from io import StringIO
 from datetime import date, datetime
-from supabase import create_client
 
 st.set_page_config(page_title="TaskFlow", layout="wide")
 
 ARQUIVO_TAREFAS = "tarefas.json"
+ARQUIVO_USUARIOS = "usuarios.json"
 ARQUIVO_PERFIS = "perfis.json"
+
+PLANILHA_TOKENS_URL = "https://docs.google.com/spreadsheets/d/1Uwav3x9hP9gk7eu8Gup-KJU-aerkdf6riWlht609MGk/edit?usp=sharing"
 
 STATUS = ["A Fazer", "Em Andamento", "Em Revisão", "Concluído"]
 STATUS_ATIVOS = ["A Fazer", "Em Andamento", "Em Revisão"]
@@ -39,9 +46,6 @@ def carregar_css():
 carregar_css()
 
 
-TOKENS_CSV_URL = "https://docs.google.com/spreadsheets/d/1Uwav3x9hP9gk7eu8Gup-KJU-aerkdf6riWlht609MGk/edit?usp=sharing"
-
-
 def carregar_json(arquivo):
     if os.path.exists(arquivo):
         try:
@@ -55,6 +59,84 @@ def carregar_json(arquivo):
 def salvar_json(arquivo, dados):
     with open(arquivo, "w", encoding="utf-8") as f:
         json.dump(dados, f, ensure_ascii=False, indent=4)
+
+
+def gerar_hash(senha):
+    return hashlib.sha256(senha.encode("utf-8")).hexdigest()
+
+
+def criar_url_csv_google_sheets(url):
+    resultado = re.search(r"/d/([a-zA-Z0-9-_]+)", url)
+
+    if not resultado:
+        return ""
+
+    planilha_id = resultado.group(1)
+    gid = "0"
+
+    resultado_gid = re.search(r"gid=([0-9]+)", url)
+    if resultado_gid:
+        gid = resultado_gid.group(1)
+
+    return f"https://docs.google.com/spreadsheets/d/{planilha_id}/gviz/tq?tqx=out:csv&gid={gid}"
+
+
+@st.cache_data(ttl=60)
+def carregar_tokens_planilha():
+    url_csv = criar_url_csv_google_sheets(PLANILHA_TOKENS_URL)
+
+    if not url_csv:
+        return []
+
+    try:
+        with urllib.request.urlopen(url_csv, timeout=10) as resposta:
+            conteudo = resposta.read().decode("utf-8")
+
+        leitor = csv.DictReader(StringIO(conteudo))
+        tokens = []
+
+        for linha in leitor:
+            item = {}
+
+            for chave, valor in linha.items():
+                if chave:
+                    item[chave.strip().lower()] = str(valor).strip()
+
+            tokens.append(item)
+
+        return tokens
+
+    except:
+        return []
+
+
+def token_valido(token_digitado):
+    token_digitado = token_digitado.strip()
+
+    if not token_digitado:
+        return False, ""
+
+    tokens = carregar_tokens_planilha()
+
+    for item in tokens:
+        token = item.get("token", "").strip()
+        ativo = item.get("ativo", "").strip().lower()
+        nome = item.get("nome", "").strip()
+
+        ativo_ok = ativo in ["sim", "s", "true", "1", "ativo", "yes"]
+
+        if token == token_digitado and ativo_ok:
+            return True, nome
+
+    return False, ""
+
+
+def carregar_usuarios():
+    return carregar_json(ARQUIVO_USUARIOS)
+
+
+def salvar_usuarios(usuarios):
+    salvar_json(ARQUIVO_USUARIOS, usuarios)
 
 
 def carregar_tarefas():
@@ -71,6 +153,89 @@ def carregar_perfis():
 
 def salvar_perfis(perfis):
     salvar_json(ARQUIVO_PERFIS, perfis)
+
+
+def buscar_usuario(nome_usuario):
+    usuarios = carregar_usuarios()
+
+    for usuario in usuarios:
+        if usuario.get("usuario") == nome_usuario:
+            return usuario
+
+    return None
+
+
+def garantir_perfil(usuario):
+    perfis = carregar_perfis()
+
+    for perfil in perfis:
+        if perfil.get("usuario") == usuario:
+            return perfil
+
+    novo = {
+        "usuario": usuario,
+        "nome": usuario,
+        "foto": "",
+        "foto_tipo": "image/png"
+    }
+
+    perfis.append(novo)
+    salvar_perfis(perfis)
+    return novo
+
+
+def buscar_perfil(usuario):
+    perfis = carregar_perfis()
+
+    for perfil in perfis:
+        if perfil.get("usuario") == usuario:
+            return perfil
+
+    return garantir_perfil(usuario)
+
+
+def atualizar_perfil(usuario, nome, foto_base64=None, foto_tipo=None):
+    perfis = carregar_perfis()
+    encontrado = False
+
+    for perfil in perfis:
+        if perfil.get("usuario") == usuario:
+            perfil["nome"] = nome
+
+            if foto_base64 is not None:
+                perfil["foto"] = foto_base64
+
+            if foto_tipo is not None:
+                perfil["foto_tipo"] = foto_tipo
+
+            encontrado = True
+
+    if not encontrado:
+        perfis.append({
+            "usuario": usuario,
+            "nome": nome,
+            "foto": foto_base64 or "",
+            "foto_tipo": foto_tipo or "image/png"
+        })
+
+    salvar_perfis(perfis)
+
+
+def nomes_usuarios():
+    usuarios = carregar_usuarios()
+    nomes = []
+
+    for usuario in usuarios:
+        nome = usuario.get("nome") or usuario.get("usuario")
+        if nome and nome not in nomes:
+            nomes.append(nome)
+
+    return sorted(nomes)
+
+
+def nome_do_usuario_logado():
+    perfil = buscar_perfil(st.session_state.usuario)
+    return perfil.get("nome") or st.session_state.usuario
 
 
 def data_valida(texto):
@@ -102,87 +267,14 @@ def corrigir_tarefa(tarefa):
     }
 
 
-def garantir_perfil(email):
-    perfis = carregar_perfis()
-
-    for perfil in perfis:
-        if perfil.get("email") == email:
-            return perfil
-
-    novo = {
-        "email": email,
-        "nome": email.split("@")[0],
-        "foto": "",
-        "foto_tipo": "image/png"
-    }
-
-    perfis.append(novo)
-    salvar_perfis(perfis)
-    return novo
-
-
-def buscar_perfil(email):
-    perfis = carregar_perfis()
-
-    for perfil in perfis:
-        if perfil.get("email") == email:
-            return perfil
-
-    return garantir_perfil(email)
-
-
-def atualizar_perfil(email, nome, foto_base64=None, foto_tipo=None):
-    perfis = carregar_perfis()
-    encontrado = False
-
-    for perfil in perfis:
-        if perfil.get("email") == email:
-            perfil["nome"] = nome
-
-            if foto_base64 is not None:
-                perfil["foto"] = foto_base64
-
-            if foto_tipo is not None:
-                perfil["foto_tipo"] = foto_tipo
-
-            encontrado = True
-
-    if not encontrado:
-        perfis.append({
-            "email": email,
-            "nome": nome,
-            "foto": foto_base64 or "",
-            "foto_tipo": foto_tipo or "image/png"
-        })
-
-    salvar_perfis(perfis)
-
-
-def nomes_usuarios():
-    perfis = carregar_perfis()
-    nomes = []
-
-    for perfil in perfis:
-        nome = perfil.get("nome") or perfil.get("email")
-        if nome and nome not in nomes:
-            nomes.append(nome)
-
-    return sorted(nomes)
-
-
-def nome_do_usuario_logado():
-    perfil = buscar_perfil(st.session_state.usuario_email)
-    return perfil.get("nome") or st.session_state.usuario_email
-
-
 def ir_para(pagina):
     st.query_params["pagina"] = pagina
     st.rerun()
 
 
 def mostrar_avatar():
-    perfil = buscar_perfil(st.session_state.usuario_email)
-    nome = html.escape(perfil.get("nome") or st.session_state.usuario_email)
+    perfil = buscar_perfil(st.session_state.usuario)
+    nome = html.escape(perfil.get("nome") or st.session_state.usuario)
 
     if perfil.get("foto"):
         src = f"data:{perfil.get('foto_tipo', 'image/png')};base64,{perfil['foto']}"
@@ -213,64 +305,8 @@ def mostrar_avatar():
 if "logado" not in st.session_state:
     st.session_state.logado = False
 
-if "usuario_email" not in st.session_state:
-    st.session_state.usuario_email = ""
-
-
-def pegar_email_usuario(resposta):
-    try:
-        if resposta.user and resposta.user.email:
-            return resposta.user.email
-    except:
-        pass
-
-    try:
-        if resposta.session and resposta.session.user and resposta.session.user.email:
-            return resposta.session.user.email
-    except:
-        pass
-
-    try:
-        usuario = supabase.auth.get_user()
-        if usuario and usuario.user and usuario.user.email:
-            return usuario.user.email
-    except:
-        pass
-
-    return ""
-
-
-def processar_retorno_google():
-    if st.session_state.logado:
-        return
-
-    codigo = st.query_params.get("code", "")
-
-    if not codigo:
-        return
-
-    try:
-        resposta = supabase.auth.exchange_code_for_session({
-            "auth_code": codigo
-        })
-
-        email = pegar_email_usuario(resposta)
-
-        if email:
-            st.session_state.logado = True
-            st.session_state.usuario_email = email
-            garantir_perfil(email)
-            st.query_params.clear()
-            st.rerun()
-        else:
-            st.error("Login Google voltou, mas não consegui identificar o e-mail.")
-
-    except Exception as erro:
-        st.error("Não foi possível concluir o login com Google.")
-        st.exception(erro)
-
-
-processar_retorno_google()
+if "usuario" not in st.session_state:
+    st.session_state.usuario = ""
 
 
 def tela_login():
@@ -282,100 +318,94 @@ def tela_login():
         st.markdown("## TaskFlow")
         st.caption("Sistema visual de gestão de tarefas")
 
-        app_url = st.secrets.get("APP_URL", "")
-
-        if st.button("Entrar com Google", use_container_width=True):
-            try:
-                resposta = supabase.auth.sign_in_with_oauth({
-                    "provider": "google",
-                    "options": {
-                        "redirect_to": app_url
-                    }
-                })
-
-                if resposta.url:
-                    st.markdown(
-                        f"""
-                        <meta http-equiv="refresh" content="0; url={resposta.url}">
-                        <a href="{resposta.url}">Clique aqui se não redirecionar automaticamente</a>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                else:
-                    st.error("Não foi possível gerar o link do Google.")
-
-            except Exception as erro:
-                st.error("Erro ao iniciar login com Google.")
-                st.exception(erro)
-
-        st.divider()
-
         aba_login, aba_cadastro, aba_reset = st.tabs(
-            ["Entrar", "Criar conta", "Recuperar senha"]
+            ["Entrar", "Criar conta", "Redefinir senha"]
         )
 
         with aba_login:
-            email = st.text_input("E-mail", key="login_email")
+            usuario = st.text_input("Usuário", key="login_usuario")
             senha = st.text_input("Senha", type="password", key="login_senha")
 
             if st.button("Entrar", key="btn_login", use_container_width=True):
-                try:
-                    resposta = supabase.auth.sign_in_with_password({
-                        "email": email,
-                        "password": senha
-                    })
+                dados_usuario = buscar_usuario(usuario)
 
-                    email_usuario = pegar_email_usuario(resposta)
-
-                    if email_usuario:
-                        st.session_state.logado = True
-                        st.session_state.usuario_email = email_usuario
-                        garantir_perfil(email_usuario)
-                        st.rerun()
-                    else:
-                        st.error("Não foi possível entrar.")
-
-                except Exception:
-                    st.error("E-mail ou senha inválidos.")
+                if dados_usuario and dados_usuario.get("senha") == gerar_hash(senha):
+                    st.session_state.logado = True
+                    st.session_state.usuario = usuario
+                    garantir_perfil(usuario)
+                    st.rerun()
+                else:
+                    st.error("Usuário ou senha inválidos.")
 
         with aba_cadastro:
-            email = st.text_input("E-mail", key="cad_email")
+            novo_usuario = st.text_input("Usuário", key="cad_usuario")
+            nome = st.text_input("Nome de exibição", key="cad_nome")
             senha = st.text_input("Senha", type="password", key="cad_senha")
             confirmar = st.text_input("Confirmar senha", type="password", key="cad_confirmar")
-            nome = st.text_input("Nome de exibição", key="cad_nome")
+            token = st.text_input("Token de verificação", type="password", key="cad_token")
 
             if st.button("Criar conta", key="btn_cadastro", use_container_width=True):
-                if senha != confirmar:
-                    st.error("As senhas não coincidem.")
-                elif not email.strip():
-                    st.error("Digite um e-mail.")
-                elif not senha.strip():
+                usuarios = carregar_usuarios()
+                valido, nome_token = token_valido(token)
+
+                if novo_usuario.strip() == "":
+                    st.error("Digite um usuário.")
+                elif senha.strip() == "":
                     st.error("Digite uma senha.")
+                elif senha != confirmar:
+                    st.error("As senhas não coincidem.")
+                elif any(u.get("usuario") == novo_usuario for u in usuarios):
+                    st.error("Esse usuário já existe.")
+                elif not valido:
+                    st.error("Token inválido ou inativo na planilha.")
                 else:
-                    try:
-                        supabase.auth.sign_up({
-                            "email": email,
-                            "password": senha
-                        })
+                    nome_final = nome.strip() or nome_token or novo_usuario
 
-                        nome_final = nome.strip() or email.split("@")[0]
-                        atualizar_perfil(email, nome_final)
+                    usuarios.append({
+                        "usuario": novo_usuario,
+                        "nome": nome_final,
+                        "senha": gerar_hash(senha),
+                        "token_usado": token
+                    })
 
-                        st.success("Conta criada. Agora tente entrar.")
+                    salvar_usuarios(usuarios)
 
-                    except Exception as erro:
-                        st.error("Não foi possível criar a conta.")
-                        st.exception(erro)
+                    atualizar_perfil(
+                        novo_usuario,
+                        nome_final
+                    )
+
+                    st.success("Conta criada. Agora entre no sistema.")
 
         with aba_reset:
-            email_reset = st.text_input("E-mail da conta", key="reset_email")
+            usuario_reset = st.text_input("Usuário", key="reset_usuario")
+            token_reset = st.text_input("Token de verificação", type="password", key="reset_token")
+            nova_senha = st.text_input("Nova senha", type="password", key="reset_senha")
+            confirmar_senha = st.text_input("Confirmar nova senha", type="password", key="reset_confirmar")
 
-            if st.button("Enviar recuperação", key="btn_reset", use_container_width=True):
-                try:
-                    supabase.auth.reset_password_for_email(email_reset)
-                    st.success("Se o e-mail existir, você receberá a recuperação.")
-                except Exception:
-                    st.error("Não foi possível enviar recuperação.")
+            if st.button("Redefinir senha", key="btn_reset", use_container_width=True):
+                usuarios = carregar_usuarios()
+                valido, _ = token_valido(token_reset)
+
+                if not valido:
+                    st.error("Token inválido ou inativo.")
+                elif nova_senha != confirmar_senha:
+                    st.error("As senhas não coincidem.")
+                elif nova_senha.strip() == "":
+                    st.error("Digite uma nova senha.")
+                else:
+                    encontrado = False
+
+                    for usuario in usuarios:
+                        if usuario.get("usuario") == usuario_reset:
+                            usuario["senha"] = gerar_hash(nova_senha)
+                            encontrado = True
+
+                    if encontrado:
+                        salvar_usuarios(usuarios)
+                        st.success("Senha redefinida.")
+                    else:
+                        st.error("Usuário não encontrado.")
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -407,7 +437,7 @@ with topo2:
     st.write("")
     if st.button("Sair", use_container_width=True):
         st.session_state.logado = False
-        st.session_state.usuario_email = ""
+        st.session_state.usuario = ""
         st.query_params.clear()
         st.rerun()
 
@@ -607,6 +637,7 @@ if pagina_url == "Quadro":
 
                     with st.expander("Editar"):
                         novo_nome = st.text_input("Nome", value=tarefa["nome"], key=f"nome_{i}")
+
                         lista_resp = nomes_usuarios()
 
                         if tarefa["responsavel"] in lista_resp:
@@ -737,7 +768,7 @@ elif pagina_url == "Concluídas":
 elif pagina_url == "Perfil":
     st.subheader("Perfil")
 
-    perfil = buscar_perfil(st.session_state.usuario_email)
+    perfil = buscar_perfil(st.session_state.usuario)
 
     perfil_col1, perfil_col2 = st.columns([1, 3])
 
@@ -750,7 +781,7 @@ elif pagina_url == "Perfil":
 
     with perfil_col2:
         novo_nome = st.text_input("Nome de exibição", value=perfil.get("nome", ""))
-        st.caption(f"E-mail: {st.session_state.usuario_email}")
+        st.caption(f"Usuário: {st.session_state.usuario}")
         st.info("A imagem ou GIF precisa ter exatamente 128x128 pixels.")
 
         arquivo_foto = st.file_uploader(
@@ -771,7 +802,7 @@ elif pagina_url == "Perfil":
 
         if st.button("Salvar perfil", use_container_width=True):
             atualizar_perfil(
-                st.session_state.usuario_email,
+                st.session_state.usuario,
                 novo_nome,
                 foto_base64,
                 foto_tipo
