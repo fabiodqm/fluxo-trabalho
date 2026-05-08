@@ -1,27 +1,26 @@
 import streamlit as st
 import json
 import os
-import hashlib
 import base64
 import html
 from datetime import date, datetime
+from supabase import create_client
 
 st.set_page_config(page_title="TaskFlow", layout="wide")
 
 ARQUIVO_TAREFAS = "tarefas.json"
-ARQUIVO_USUARIOS = "usuarios.json"
-
-TOKEN_CADASTRO = "123456"
+ARQUIVO_PERFIS = "perfis.json"
 
 STATUS = ["A Fazer", "Em Andamento", "Em Revisão", "Concluído"]
 STATUS_ATIVOS = ["A Fazer", "Em Andamento", "Em Revisão"]
+
 PRIORIDADES = ["Urgente", "Alta", "Média", "Baixa"]
 
 ICONES = {
-    "Baixa": "🔵",
-    "Média": "🟡",
+    "Urgente": "🔴",
     "Alta": "🟠",
-    "Urgente": "🔴"
+    "Média": "🟡",
+    "Baixa": "🔵"
 }
 
 PESO_PRIORIDADE = {
@@ -32,8 +31,118 @@ PESO_PRIORIDADE = {
 }
 
 
-def gerar_hash(senha):
-    return hashlib.sha256(senha.encode()).hexdigest()
+st.markdown("""
+<style>
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
+}
+
+[data-testid="stSidebar"] {
+    background: #020617;
+    border-right: 1px solid #1e293b;
+}
+
+.block-container {
+    padding-top: 1.5rem;
+    padding-bottom: 3rem;
+}
+
+h1, h2, h3 {
+    color: #f8fafc;
+}
+
+p, label, span, div {
+    color: #e5e7eb;
+}
+
+[data-testid="stMetric"] {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    padding: 18px;
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+
+[data-testid="stMetricLabel"] {
+    color: #94a3b8;
+}
+
+[data-testid="stMetricValue"] {
+    color: #ffffff;
+}
+
+.stButton button {
+    border-radius: 12px;
+    border: 1px solid #334155;
+    background: #111827;
+    color: #f8fafc;
+    font-weight: 600;
+    padding: 0.55rem 1rem;
+}
+
+.stButton button:hover {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+}
+
+[data-testid="stForm"] {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 18px;
+    padding: 18px;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 18px;
+    border-color: #1e293b;
+    background: #0f172a;
+}
+
+div[data-baseweb="input"] input,
+div[data-baseweb="select"] > div,
+textarea {
+    border-radius: 12px !important;
+}
+
+.task-pill {
+    display:inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    background: #1e293b;
+    color: #f8fafc;
+}
+
+.avatar-name {
+    text-align:center;
+    font-size:13px;
+    margin-top:6px;
+    color:#f8fafc;
+    font-weight:700;
+}
+
+.small-muted {
+    color:#94a3b8;
+    font-size:13px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+def supabase_client():
+    url = st.secrets.get("SUPABASE_URL", "")
+    key = st.secrets.get("SUPABASE_KEY", "")
+
+    if not url or not key:
+        st.error("Configure SUPABASE_URL e SUPABASE_KEY nos Secrets do Streamlit.")
+        st.stop()
+
+    return create_client(url, key)
+
+
+supabase = supabase_client()
 
 
 def carregar_json(arquivo):
@@ -51,14 +160,6 @@ def salvar_json(arquivo, dados):
         json.dump(dados, f, ensure_ascii=False, indent=4)
 
 
-def carregar_usuarios():
-    return carregar_json(ARQUIVO_USUARIOS)
-
-
-def salvar_usuarios(usuarios):
-    salvar_json(ARQUIVO_USUARIOS, usuarios)
-
-
 def carregar_tarefas():
     return carregar_json(ARQUIVO_TAREFAS)
 
@@ -67,13 +168,19 @@ def salvar_tarefas():
     salvar_json(ARQUIVO_TAREFAS, st.session_state.tarefas)
 
 
-def corrigir_usuario(usuario):
-    return {
-        "usuario": usuario.get("usuario", ""),
-        "senha": usuario.get("senha", ""),
-        "foto": usuario.get("foto", ""),
-        "foto_tipo": usuario.get("foto_tipo", "image/png")
-    }
+def carregar_perfis():
+    return carregar_json(ARQUIVO_PERFIS)
+
+
+def salvar_perfis(perfis):
+    salvar_json(ARQUIVO_PERFIS, perfis)
+
+
+def data_valida(texto):
+    try:
+        return datetime.strptime(texto, "%Y-%m-%d").date()
+    except:
+        return None
 
 
 def corrigir_tarefa(tarefa):
@@ -98,35 +205,78 @@ def corrigir_tarefa(tarefa):
     }
 
 
-def usuarios_nomes():
-    usuarios = carregar_usuarios()
-    return [u.get("usuario", "") for u in usuarios if u.get("usuario")]
+def garantir_perfil(email):
+    perfis = carregar_perfis()
+
+    for perfil in perfis:
+        if perfil.get("email") == email:
+            return perfil
+
+    novo_perfil = {
+        "email": email,
+        "nome": email.split("@")[0],
+        "foto": "",
+        "foto_tipo": "image/png"
+    }
+
+    perfis.append(novo_perfil)
+    salvar_perfis(perfis)
+
+    return novo_perfil
 
 
-def buscar_usuario(nome):
-    usuarios = carregar_usuarios()
-    for u in usuarios:
-        if u.get("usuario") == nome:
-            return corrigir_usuario(u)
-    return None
+def buscar_perfil(email):
+    perfis = carregar_perfis()
+
+    for perfil in perfis:
+        if perfil.get("email") == email:
+            return perfil
+
+    return garantir_perfil(email)
 
 
-def salvar_foto_usuario(nome, foto_base64, foto_tipo):
-    usuarios = carregar_usuarios()
+def atualizar_perfil(email, nome, foto_base64=None, foto_tipo=None):
+    perfis = carregar_perfis()
+    encontrado = False
 
-    for u in usuarios:
-        if u.get("usuario") == nome:
-            u["foto"] = foto_base64
-            u["foto_tipo"] = foto_tipo
+    for perfil in perfis:
+        if perfil.get("email") == email:
+            perfil["nome"] = nome
 
-    salvar_usuarios(usuarios)
+            if foto_base64 is not None:
+                perfil["foto"] = foto_base64
+
+            if foto_tipo is not None:
+                perfil["foto_tipo"] = foto_tipo
+
+            encontrado = True
+
+    if not encontrado:
+        perfis.append({
+            "email": email,
+            "nome": nome,
+            "foto": foto_base64 or "",
+            "foto_tipo": foto_tipo or "image/png"
+        })
+
+    salvar_perfis(perfis)
 
 
-def data_valida(texto):
-    try:
-        return datetime.strptime(texto, "%Y-%m-%d").date()
-    except:
-        return None
+def nomes_usuarios():
+    perfis = carregar_perfis()
+    nomes = []
+
+    for perfil in perfis:
+        nome = perfil.get("nome") or perfil.get("email")
+        if nome and nome not in nomes:
+            nomes.append(nome)
+
+    return sorted(nomes)
+
+
+def nome_do_usuario_logado():
+    perfil = buscar_perfil(st.session_state.usuario_email)
+    return perfil.get("nome") or st.session_state.usuario_email
 
 
 def ir_para(pagina):
@@ -134,60 +284,57 @@ def ir_para(pagina):
     st.rerun()
 
 
-def mostrar_avatar_clicavel(usuario_nome):
-    usuario = buscar_usuario(usuario_nome)
-    nome_seguro = html.escape(usuario_nome)
+def mostrar_avatar_clicavel():
+    perfil = buscar_perfil(st.session_state.usuario_email)
+    nome = html.escape(perfil.get("nome") or st.session_state.usuario_email)
 
-    if usuario and usuario.get("foto"):
-        src = f"data:{usuario.get('foto_tipo', 'image/png')};base64,{usuario['foto']}"
+    if perfil.get("foto"):
+        src = f"data:{perfil.get('foto_tipo', 'image/png')};base64,{perfil['foto']}"
 
         st.markdown(
             f"""
-            <a href="?pagina=Perfil" style="text-decoration:none;color:white;">
-                <div style="text-align:center; width:90px; margin-left:auto;">
+            <a href="?pagina=Perfil" style="text-decoration:none;">
+                <div style="text-align:center; width:95px; margin-left:auto;">
                     <img src="{src}"
                     style="
-                        width:58px;
-                        height:58px;
+                        width:60px;
+                        height:60px;
                         border-radius:50%;
                         object-fit:cover;
-                        border:2px solid white;
+                        border:2px solid #ffffff;
                         display:block;
                         margin:auto;
                     ">
-                    <div style="text-align:center;font-size:13px;margin-top:6px;">
-                        {nome_seguro}
-                    </div>
+                    <div class="avatar-name">{nome}</div>
                 </div>
             </a>
             """,
             unsafe_allow_html=True
         )
     else:
-        letra = nome_seguro[:1].upper()
+        letra = nome[:1].upper()
 
         st.markdown(
             f"""
-            <a href="?pagina=Perfil" style="text-decoration:none;color:white;">
-                <div style="text-align:center; width:90px; margin-left:auto;">
+            <a href="?pagina=Perfil" style="text-decoration:none;">
+                <div style="text-align:center; width:95px; margin-left:auto;">
                     <div style="
-                        width:58px;
-                        height:58px;
+                        width:60px;
+                        height:60px;
                         border-radius:50%;
                         background:#334155;
                         display:flex;
                         align-items:center;
                         justify-content:center;
                         margin:auto;
-                        border:2px solid white;
+                        border:2px solid #ffffff;
                         font-size:24px;
                         font-weight:bold;
+                        color:white;
                     ">
                         {letra}
                     </div>
-                    <div style="text-align:center;font-size:13px;margin-top:6px;">
-                        {nome_seguro}
-                    </div>
+                    <div class="avatar-name">{nome}</div>
                 </div>
             </a>
             """,
@@ -198,95 +345,90 @@ def mostrar_avatar_clicavel(usuario_nome):
 if "logado" not in st.session_state:
     st.session_state.logado = False
 
-if "usuario" not in st.session_state:
-    st.session_state.usuario = ""
+if "usuario_email" not in st.session_state:
+    st.session_state.usuario_email = ""
 
 
 def tela_login():
-    st.title("TaskFlow")
-    st.caption("Sistema de Gestão Visual de Tarefas")
+    centro1, centro2, centro3 = st.columns([1, 1.3, 1])
 
-    aba_login, aba_cadastro, aba_reset = st.tabs(
-        ["Entrar", "Criar conta", "Redefinir senha"]
-    )
+    with centro2:
+        st.markdown("## TaskFlow")
+        st.caption("Sistema visual de gestão de tarefas")
 
-    with aba_login:
-        usuario = st.text_input("Usuário", key="login_usuario")
-        senha = st.text_input("Senha", type="password", key="login_senha")
+        aba_login, aba_cadastro, aba_reset = st.tabs(
+            ["Entrar", "Criar conta", "Recuperar senha"]
+        )
 
-        if st.button("Entrar", key="btn_login"):
-            usuarios = carregar_usuarios()
-            senha_hash = gerar_hash(senha)
+        with aba_login:
+            email = st.text_input("E-mail", key="login_email")
+            senha = st.text_input("Senha", type="password", key="login_senha")
 
-            for u in usuarios:
-                if u["usuario"] == usuario and u["senha"] == senha_hash:
-                    st.session_state.logado = True
-                    st.session_state.usuario = usuario
-                    st.rerun()
+            if st.button("Entrar", key="btn_login", use_container_width=True):
+                try:
+                    resposta = supabase.auth.sign_in_with_password({
+                        "email": email,
+                        "password": senha
+                    })
 
-            st.error("Usuário ou senha inválidos.")
+                    if resposta.user:
+                        st.session_state.logado = True
+                        st.session_state.usuario_email = email
+                        garantir_perfil(email)
+                        st.rerun()
+                    else:
+                        st.error("Não foi possível entrar.")
 
-    with aba_cadastro:
-        novo_usuario = st.text_input("Novo usuário", key="cad_usuario")
-        nova_senha = st.text_input("Nova senha", type="password", key="cad_senha")
-        confirmar = st.text_input("Confirmar senha", type="password", key="cad_confirmar")
-        token = st.text_input("Token de cadastro", type="password", key="cad_token")
+                except Exception as erro:
+                    st.error("E-mail ou senha inválidos. Confirme também se o e-mail foi verificado.")
 
-        if st.button("Criar conta", key="btn_cadastro"):
-            usuarios = carregar_usuarios()
+        with aba_cadastro:
+            email = st.text_input("E-mail", key="cad_email")
+            senha = st.text_input("Senha", type="password", key="cad_senha")
+            confirmar = st.text_input("Confirmar senha", type="password", key="cad_confirmar")
+            nome = st.text_input("Nome de exibição", key="cad_nome")
 
-            if token != TOKEN_CADASTRO:
-                st.error("Token de cadastro inválido.")
-            elif novo_usuario.strip() == "":
-                st.error("Digite um usuário.")
-            elif nova_senha.strip() == "":
-                st.error("Digite uma senha.")
-            elif nova_senha != confirmar:
-                st.error("As senhas não coincidem.")
-            elif any(u["usuario"] == novo_usuario for u in usuarios):
-                st.error("Usuário já existe.")
-            else:
-                usuarios.append({
-                    "usuario": novo_usuario,
-                    "senha": gerar_hash(nova_senha),
-                    "foto": "",
-                    "foto_tipo": "image/png"
-                })
-                salvar_usuarios(usuarios)
-                st.success("Conta criada com sucesso.")
-
-    with aba_reset:
-        usuario_reset = st.text_input("Usuário", key="reset_usuario")
-        nova_senha_reset = st.text_input("Nova senha", type="password", key="reset_senha")
-        confirmar_reset = st.text_input("Confirmar nova senha", type="password", key="reset_confirmar")
-
-        if st.button("Redefinir senha", key="btn_reset"):
-            usuarios = carregar_usuarios()
-
-            if nova_senha_reset != confirmar_reset:
-                st.error("As senhas não coincidem.")
-            else:
-                encontrado = False
-
-                for u in usuarios:
-                    if u["usuario"] == usuario_reset:
-                        u["senha"] = gerar_hash(nova_senha_reset)
-                        encontrado = True
-
-                if encontrado:
-                    salvar_usuarios(usuarios)
-                    st.success("Senha redefinida.")
+            if st.button("Criar conta", key="btn_cadastro", use_container_width=True):
+                if senha != confirmar:
+                    st.error("As senhas não coincidem.")
+                elif not email.strip():
+                    st.error("Digite um e-mail.")
+                elif not senha.strip():
+                    st.error("Digite uma senha.")
                 else:
-                    st.error("Usuário não encontrado.")
+                    try:
+                        resposta = supabase.auth.sign_up({
+                            "email": email,
+                            "password": senha
+                        })
+
+                        nome_final = nome.strip() or email.split("@")[0]
+                        atualizar_perfil(email, nome_final)
+
+                        st.success("Conta criada. Verifique seu e-mail antes de fazer login.")
+
+                    except Exception as erro:
+                        st.error("Não foi possível criar a conta. Verifique se o e-mail já existe.")
+
+        with aba_reset:
+            email_reset = st.text_input("E-mail da conta", key="reset_email")
+
+            if st.button("Enviar recuperação", key="btn_reset", use_container_width=True):
+                try:
+                    try:
+                        supabase.auth.reset_password_for_email(email_reset)
+                    except AttributeError:
+                        supabase.auth.reset_password_email(email_reset)
+
+                    st.success("Se o e-mail existir, você receberá uma mensagem de recuperação.")
+                except Exception:
+                    st.error("Não foi possível enviar a recuperação agora.")
 
 
 if not st.session_state.logado:
     tela_login()
     st.stop()
 
-
-usuarios_corrigidos = [corrigir_usuario(u) for u in carregar_usuarios()]
-salvar_usuarios(usuarios_corrigidos)
 
 if "tarefas" not in st.session_state:
     tarefas = carregar_tarefas()
@@ -304,16 +446,18 @@ topo_esq, topo_meio, topo_dir = st.columns([5, 2, 1])
 
 with topo_esq:
     st.title("TaskFlow")
+    st.caption("Painel de gestão de tarefas")
 
 with topo_meio:
-    if st.button("Sair"):
+    st.write("")
+    if st.button("Sair", use_container_width=True):
         st.session_state.logado = False
-        st.session_state.usuario = ""
+        st.session_state.usuario_email = ""
         st.query_params.clear()
         st.rerun()
 
 with topo_dir:
-    mostrar_avatar_clicavel(st.session_state.usuario)
+    mostrar_avatar_clicavel()
 
 
 with st.sidebar:
@@ -325,22 +469,22 @@ with st.sidebar:
     if st.button("✅ Concluídas", use_container_width=True):
         ir_para("Concluídas")
 
-    st.caption("Clique na foto para abrir o perfil.")
+    st.caption("Clique na foto no topo para abrir o perfil.")
 
     st.divider()
 
     if pagina_url == "Quadro":
         st.header("Nova tarefa")
 
-        nomes_usuarios = usuarios_nomes()
+        lista_usuarios = nomes_usuarios()
 
         with st.form("form_tarefa"):
             nome = st.text_input("Nome da tarefa")
 
-            if nomes_usuarios:
-                responsavel = st.selectbox("Responsável", nomes_usuarios)
+            if lista_usuarios:
+                responsavel = st.selectbox("Responsável", lista_usuarios)
             else:
-                responsavel = ""
+                responsavel = nome_do_usuario_logado()
 
             descricao = st.text_area("Descrição")
             prioridade = st.selectbox("Prioridade", PRIORIDADES)
@@ -352,8 +496,6 @@ with st.sidebar:
             if criar:
                 if nome.strip() == "":
                     st.error("Digite o nome da tarefa.")
-                elif responsavel.strip() == "":
-                    st.error("Cadastre um usuário para ser responsável.")
                 else:
                     st.session_state.tarefas.append({
                         "nome": nome,
@@ -363,8 +505,9 @@ with st.sidebar:
                         "prazo": str(prazo),
                         "hora": str(hora),
                         "status": "A Fazer",
-                        "criado_por": st.session_state.usuario
+                        "criado_por": nome_do_usuario_logado()
                     })
+
                     salvar_tarefas()
                     st.rerun()
 
@@ -380,11 +523,11 @@ with st.sidebar:
         pesquisa_concluidas = st.text_input("Pesquisar")
         responsavel_concluidas = st.selectbox(
             "Responsável",
-            ["Todos"] + usuarios_nomes()
+            ["Todos"] + nomes_usuarios()
         )
         criador_concluidas = st.selectbox(
             "Criado por",
-            ["Todos"] + usuarios_nomes()
+            ["Todos"] + nomes_usuarios()
         )
         prioridade_concluidas = st.multiselect(
             "Prioridades",
@@ -449,8 +592,6 @@ if pagina_url == "Quadro":
 
     for nome_status, coluna in colunas.items():
         with coluna:
-            st.markdown(f"### {nome_status}")
-
             tarefas_da_coluna = [
                 (i, t)
                 for i, t in enumerate(st.session_state.tarefas)
@@ -461,6 +602,8 @@ if pagina_url == "Quadro":
                 tarefas_da_coluna,
                 key=lambda item: PESO_PRIORIDADE.get(item[1]["prioridade"], 99)
             )
+
+            st.markdown(f"### {nome_status} ({len(tarefas_da_coluna)})")
 
             mostradas = 0
 
@@ -502,7 +645,8 @@ if pagina_url == "Quadro":
 
                     if st.button(
                         f"Avançar para {proximo_status}",
-                        key=f"avancar_{i}"
+                        key=f"avancar_{i}",
+                        use_container_width=True
                     ):
                         st.session_state.tarefas[i]["status"] = proximo_status
                         salvar_tarefas()
@@ -511,16 +655,16 @@ if pagina_url == "Quadro":
                     with st.expander("Editar"):
                         novo_nome = st.text_input("Nome", value=tarefa["nome"], key=f"nome_{i}")
 
-                        nomes_usuarios_edit = usuarios_nomes()
+                        lista_resp = nomes_usuarios()
 
-                        if tarefa["responsavel"] in nomes_usuarios_edit:
-                            indice_resp = nomes_usuarios_edit.index(tarefa["responsavel"])
+                        if tarefa["responsavel"] in lista_resp:
+                            indice_resp = lista_resp.index(tarefa["responsavel"])
                         else:
                             indice_resp = 0
 
                         novo_responsavel = st.selectbox(
                             "Responsável",
-                            nomes_usuarios_edit,
+                            lista_resp,
                             index=indice_resp,
                             key=f"resp_{i}"
                         )
@@ -537,7 +681,7 @@ if pagina_url == "Quadro":
                         novo_prazo = st.text_input("Prazo", value=tarefa["prazo"], key=f"prazo_{i}")
                         nova_hora = st.text_input("Hora", value=tarefa["hora"], key=f"hora_{i}")
 
-                        if st.button("Salvar edição", key=f"salvar_{i}"):
+                        if st.button("Salvar edição", key=f"salvar_{i}", use_container_width=True):
                             st.session_state.tarefas[i]["nome"] = novo_nome
                             st.session_state.tarefas[i]["responsavel"] = novo_responsavel
                             st.session_state.tarefas[i]["descricao"] = nova_descricao
@@ -547,7 +691,7 @@ if pagina_url == "Quadro":
                             salvar_tarefas()
                             st.rerun()
 
-                    if st.button("Excluir", key=f"excluir_{i}"):
+                    if st.button("Excluir", key=f"excluir_{i}", use_container_width=True):
                         st.session_state.tarefas.pop(i)
                         salvar_tarefas()
                         st.rerun()
@@ -622,7 +766,14 @@ elif pagina_url == "Concluídas":
             key=lambda item: item[1]["responsavel"].lower()
         )
 
-    st.metric("Resultado encontrado", len(filtradas))
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric("Resultado", len(filtradas))
+    c2.metric("Urgentes", len([t for _, t in filtradas if t["prioridade"] == "Urgente"]))
+    c3.metric("Altas", len([t for _, t in filtradas if t["prioridade"] == "Alta"]))
+    c4.metric("Médias/Baixas", len([t for _, t in filtradas if t["prioridade"] in ["Média", "Baixa"]]))
+
+    st.divider()
 
     for i, tarefa in filtradas:
         icone = ICONES.get(tarefa["prioridade"], "⚪")
@@ -650,25 +801,29 @@ elif pagina_url == "Concluídas":
 elif pagina_url == "Perfil":
     st.subheader("Perfil")
 
-    usuario_atual = buscar_usuario(st.session_state.usuario)
+    perfil = buscar_perfil(st.session_state.usuario_email)
 
     perfil_col1, perfil_col2 = st.columns([1, 3])
 
     with perfil_col1:
-        if usuario_atual and usuario_atual.get("foto"):
-            bytes_foto = base64.b64decode(usuario_atual["foto"])
+        if perfil.get("foto"):
+            bytes_foto = base64.b64decode(perfil["foto"])
             st.image(bytes_foto, width=128)
         else:
             st.info("Sem foto")
 
     with perfil_col2:
-        st.write(f"**Usuário:** {st.session_state.usuario}")
+        novo_nome = st.text_input("Nome de exibição", value=perfil.get("nome", ""))
+        st.caption(f"E-mail: {st.session_state.usuario_email}")
         st.info("A imagem ou GIF precisa ter exatamente 128x128 pixels.")
 
         arquivo_foto = st.file_uploader(
             "Enviar foto/GIF 128x128 pixels",
             type=["png", "jpg", "jpeg", "gif"]
         )
+
+        foto_base64 = None
+        foto_tipo = None
 
         if arquivo_foto is not None:
             dados = arquivo_foto.read()
@@ -678,11 +833,12 @@ elif pagina_url == "Perfil":
             st.image(dados, width=128)
             st.caption("Prévia 128x128 pixels.")
 
-            if st.button("Salvar imagem do perfil"):
-                salvar_foto_usuario(
-                    st.session_state.usuario,
-                    foto_base64,
-                    foto_tipo
-                )
-                st.success("Imagem salva.")
-                st.rerun()
+        if st.button("Salvar perfil", use_container_width=True):
+            atualizar_perfil(
+                st.session_state.usuario_email,
+                novo_nome,
+                foto_base64,
+                foto_tipo
+            )
+            st.success("Perfil salvo.")
+            st.rerun()
