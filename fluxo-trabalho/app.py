@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxbLn-lzXfwYGfcjdlc9ZqFRo5F_XIYaZZfhdvxRB6O2VEE8zsQlxSaSpP1IXLjQbM/exec"
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxF1BQkF-WJP8Mjhv6DFafKpRsI_7bvAcB6UyKeSsUZleZaR2eK4h4RHpzTz6xOkqmB/exec"
 
 ARQUIVO_TAREFAS = "tarefas.json"
 ARQUIVO_USUARIOS = "usuarios.json"
