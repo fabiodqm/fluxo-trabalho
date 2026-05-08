@@ -380,7 +380,7 @@ def tela_login():
                         st.error("Não foi possível entrar.")
 
                 except Exception as erro:
-                    st.error("E-mail ou senha inválidos. Confirme também se o e-mail foi verificado.")
+                    st.error(str(erro))
 
         with aba_cadastro:
             email = st.text_input("E-mail", key="cad_email")
